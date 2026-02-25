@@ -1,0 +1,14 @@
+# Go
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Env
+.env
+
+# IDE
+.vscode/
+.idea/
