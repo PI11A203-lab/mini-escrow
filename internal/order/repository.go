@@ -13,6 +13,32 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
+func (r *Repository) Create(buyerID, sellerID, amount int64) (*Order, error) {
+	query := `
+		INSERT INTO orders (buyer_id, seller_id, amount, status, version)
+		VALUES (?, ?, ?, ?, 0)
+	`
+
+	res, err := r.db.Exec(query, buyerID, sellerID, amount, Created)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Order{
+		ID:       id,
+		BuyerID:  buyerID,
+		SellerID: sellerID,
+		Amount:   amount,
+		Status:   Created,
+		Version:  0,
+	}, nil
+}
+
 func (r *Repository) GetByID(tx *sql.Tx, id int64) (*Order, error) {
 	query := `
 		SELECT id, buyer_id, seller_id, amount, status, version

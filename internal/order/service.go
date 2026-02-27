@@ -21,7 +21,15 @@ func NewService(db *sql.DB) *Service {
 	}
 }
 
-func (s *Service) FundOrder(orderID int64, platformID int64) (err error) {
+func (s *Service) CreateOrder(buyerID, sellerID, amount int64) (*Order, error) {
+	return s.orderRepo.Create(buyerID, sellerID, amount)
+}
+
+// FundOrderWithKey:
+// idempotency 키를 사용하는 Fund 구현.
+// 같은 key로 여러 번 호출되면 한 번만 실제로 돈이 이동하고,
+// 이후 호출은 이미 처리된 것으로 간주한다.
+func (s *Service) FundOrderWithKey(orderID int64, platformID int64, key string) (err error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -32,6 +40,28 @@ func (s *Service) FundOrder(orderID int64, platformID int64) (err error) {
 			_ = tx.Rollback()
 		}
 	}()
+
+	// 0️⃣ idempotency 키 등록 (있을 경우)
+	if key != "" {
+		_, err = tx.Exec(
+			`INSERT INTO idempotency_keys (id, order_id, operation) VALUES (?, ?, 'FUND')`,
+			key,
+			orderID,
+		)
+		if err != nil {
+			// 이미 처리된 키라면, 해당 주문이 FUNDED 상태인지 확인하고 그대로 성공으로 간주
+			var status string
+			row := tx.QueryRow(`SELECT status FROM orders WHERE id = ?`, orderID)
+			if scanErr := row.Scan(&status); scanErr != nil {
+				return scanErr
+			}
+			if status == string(Funded) {
+				err = tx.Commit()
+				return err
+			}
+			return err
+		}
+	}
 
 	// 1️⃣ 주문 조회 + row lock
 	order, err := s.orderRepo.GetByID(tx, orderID)
@@ -87,6 +117,11 @@ func (s *Service) FundOrder(orderID int64, platformID int64) (err error) {
 	// 6️⃣ commit
 	err = tx.Commit()
 	return err
+}
+
+// 기존 호출자들을 위한 wrapper (idempotency 키 없이 사용)
+func (s *Service) FundOrder(orderID int64, platformID int64) (err error) {
+	return s.FundOrderWithKey(orderID, platformID, "")
 }
 
 // ConfirmOrder:
