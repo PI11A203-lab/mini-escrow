@@ -1,5 +1,7 @@
 ## Mini Escrow 프로젝트 개요
 
+ddddd
+
 이 프로젝트는 **에스크로(escrow) 결제 흐름**을 학습·증명하기 위한 최소한의 서버입니다.
 
 핵심 시나리오:
@@ -205,4 +207,3 @@ func TestFundOrder_Concurrency_WithRealDB(t *testing.T) {
 - 동시성 문제는 어떻게 막았는가?
 - 트랜잭션 경계는 어디까지인가?
 - rollback이 어떻게 보장되는가?
-
